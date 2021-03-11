@@ -6,6 +6,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <GLKit/GLKit.h>
 #import "messages.h"
+#import <KTVHTTPCache/KTVHTTPCache.h>
 
 #if !__has_feature(objc_arc)
 #error Code Requires ARC.
@@ -45,6 +46,7 @@ int64_t FLTCMTimeToMillis(CMTime time) {
 @property(nonatomic, readonly) bool disposed;
 @property(nonatomic, readonly) bool isPlaying;
 @property(nonatomic) bool isLooping;
+@property(nonatomic, readonly) CVPixelBufferRef prevBuffer;
 @property(nonatomic, readonly) bool isInitialized;
 - (instancetype)initWithURL:(NSURL*)url frameUpdater:(FLTFrameUpdater*)frameUpdater;
 - (void)play;
@@ -164,6 +166,9 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
 
 - (instancetype)initWithURL:(NSURL*)url frameUpdater:(FLTFrameUpdater*)frameUpdater {
   AVPlayerItem* item = [AVPlayerItem playerItemWithURL:url];
+        //[KTVHTTPCache downloadSetAdditionalHeaders:headers];
+        NSURL *proxyURL = [KTVHTTPCache proxyURLWithOriginalURL:url];
+        item = [AVPlayerItem playerItemWithURL:proxyURL];
   return [self initWithPlayerItem:item frameUpdater:frameUpdater];
 }
 
@@ -383,13 +388,38 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
   _player.rate = speed;
 }
 
+- (CVPixelBufferRef)prevTransparentBuffer {
+    if (_prevBuffer) {
+        CVPixelBufferLockBaseAddress(_prevBuffer, 0);
+        
+        int bufferWidth = CVPixelBufferGetWidth(_prevBuffer);
+        int bufferHeight = CVPixelBufferGetHeight(_prevBuffer);
+        unsigned char* pixel = (unsigned char*)CVPixelBufferGetBaseAddress(_prevBuffer);
+        
+        for (int row = 0; row < bufferHeight; row++) {
+            for (int column = 0; column < bufferWidth; column++) {
+                pixel[0] = 0;
+                pixel[1] = 0;
+                pixel[2] = 0;
+                pixel[3] = 0;
+                pixel += 4;
+            }
+        }
+        CVPixelBufferUnlockBaseAddress(_prevBuffer, 0);
+        return _prevBuffer;
+    }
+    return _prevBuffer;
+}
+
 - (CVPixelBufferRef)copyPixelBuffer {
   CMTime outputItemTime = [_videoOutput itemTimeForHostTime:CACurrentMediaTime()];
   if ([_videoOutput hasNewPixelBufferForItemTime:outputItemTime]) {
-    return [_videoOutput copyPixelBufferForItemTime:outputItemTime itemTimeForDisplay:NULL];
+      _prevBuffer = [_videoOutput copyPixelBufferForItemTime:outputItemTime itemTimeForDisplay:NULL];
+      return _prevBuffer;
   } else {
-    return NULL;
+      return NULL;
   }
+
 }
 
 - (void)onTextureUnregistered:(NSObject<FlutterTexture>*)texture {
@@ -466,6 +496,7 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
   _messenger = [registrar messenger];
   _registrar = registrar;
   _players = [NSMutableDictionary dictionaryWithCapacity:1];
+  [KTVHTTPCache proxyStart:nil];
   return self;
 }
 
