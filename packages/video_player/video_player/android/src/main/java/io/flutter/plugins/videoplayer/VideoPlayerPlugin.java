@@ -90,6 +90,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, VideoPlayerApi {
     if (flutterState == null) {
       Log.wtf(TAG, "Detached from the engine before registering to it.");
     }
+    QuSePlayerCache.releaseCache();
     flutterState.stopListening(binding.getBinaryMessenger());
     flutterState = null;
     initialize();
