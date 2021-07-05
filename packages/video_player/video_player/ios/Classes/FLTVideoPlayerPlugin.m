@@ -496,7 +496,7 @@ static inline CGFloat radiansToDegrees(CGFloat radians) {
   _messenger = [registrar messenger];
   _registrar = registrar;
   _players = [NSMutableDictionary dictionaryWithCapacity:1];
-  [KTVHTTPCache proxyStart:nil];
+  //[KTVHTTPCache proxyStart:nil];
   return self;
 }
 
